@@ -12,7 +12,7 @@ console.log('[Diet-App] script.js geladen');
 // - Fehler als Toast (nicht nur alert)
 // - ✅ Loading Overlay + UI Lock während Analyse
 // - ✅ NEU: Sichtbares Fallback-Rendering, falls DOM-IDs nicht passen
-// - ✅ FIX: Dateiauswahl öffnet NICHT mehr zweimal (stopPropagation + guard)
+// - ✅ FIX: Dateiauswahl öffnet NICHT mehr zweimal (Label-Default block + guard)
 // -------------------------------------------------------------
 
 // -------------------------------------------------------------
@@ -414,12 +414,79 @@ if (dietFileInput) {
 }
 
 /**
- * ✅ FIX: Doppelt-Dialog verhindern
- * Ursache: Klick auf Button bubbelt in Upload-Area rein => 2x input.click()
+ * ✅ FIX: Doppelt-Dialog endgültig verhindern
+ * Ursache (typisch): Button liegt in/bei <label for="diet-file-input">,
+ * dann öffnet der Browser den Dialog 1x automatisch + unser JS nochmal (queued).
+ * Ergebnis: nach "Öffnen" poppt derselbe Dialog sofort nochmal auf.
+ *
  * Lösung:
- * - Buttons: e.preventDefault + e.stopPropagation
- * - Upload-Area: ignoriert Klicks, wenn sie von Buttons stammen
+ * 1) Blockiere Label-Default-Click für die Buttons (capture-phase).
+ * 2) Öffne den Dialog nur über eine kontrollierte Funktion mit Guard.
  */
+
+let __dietFileDialogOpen = false;
+
+function attachBlockNativeLabelClick(btn, fileInput) {
+  try {
+    if (!btn || !fileInput) return;
+    const label = btn.closest && btn.closest('label');
+    if (!label) return;
+
+    const fileId = fileInput.id ? String(fileInput.id) : '';
+    const labelFor = label.getAttribute('for');
+
+    const labelTargetsThisInput =
+      (labelFor && fileId && labelFor === fileId) ||
+      (label.contains && label.contains(fileInput));
+
+    if (!labelTargetsThisInput) return;
+
+    // Blockiere den nativen Label-Klick (sonst öffnet der Browser selbst)
+    label.addEventListener('click', (e) => {
+      // Nur blocken, wenn der Klick aus dem Button-Bereich kam
+      const fromBtn = e.target && (e.target === btn || (e.target.closest && e.target.closest('#' + btn.id)));
+      if (!fromBtn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    }, true); // capture
+  } catch {}
+}
+
+function openDietFileDialog(setupFn) {
+  if (!dietFileInput) return;
+
+  // Guard gegen queued second-open
+  if (__dietFileDialogOpen) return;
+  __dietFileDialogOpen = true;
+
+  try { setupFn && setupFn(); } catch {}
+
+  // wichtig: damit "gleiches Bild erneut" ein change auslöst
+  try { dietFileInput.value = ''; } catch {}
+
+  // Öffnen (einziges kontrolliertes click)
+  try { dietFileInput.click(); } catch {}
+
+  // Wenn Dialog geschlossen ist, kommt Fenster-Fokus zurück -> Guard reset
+  const reset = () => {
+    __dietFileDialogOpen = false;
+    window.removeEventListener('focus', reset, true);
+    try { dietFileInput.removeEventListener('change', resetOnChange, true); } catch {}
+  };
+
+  const resetOnChange = () => {
+    __dietFileDialogOpen = false;
+    try { dietFileInput.removeEventListener('change', resetOnChange, true); } catch {}
+    window.removeEventListener('focus', reset, true);
+  };
+
+  window.addEventListener('focus', reset, true);
+  // zusätzlich: falls focus nicht feuert (mobile/webview), reset auch on change
+  try { dietFileInput.addEventListener('change', resetOnChange, true); } catch {}
+}
+
 function isClickFromDietPickButtons(e) {
   try {
     const t = e && e.target;
@@ -430,14 +497,26 @@ function isClickFromDietPickButtons(e) {
   }
 }
 
+// Blockiere nativen Label-Click falls vorhanden (wichtig!)
+window.addEventListener('DOMContentLoaded', () => {
+  if (dietGalleryBtn && dietFileInput) attachBlockNativeLabelClick(dietGalleryBtn, dietFileInput);
+  if (dietCameraBtn && dietFileInput) attachBlockNativeLabelClick(dietCameraBtn, dietFileInput);
+
+  // Sicherheit: Buttons sollen keine Form submitten
+  try { if (dietGalleryBtn && dietGalleryBtn.tagName === 'BUTTON') dietGalleryBtn.type = 'button'; } catch {}
+  try { if (dietCameraBtn && dietCameraBtn.tagName === 'BUTTON') dietCameraBtn.type = 'button'; } catch {}
+});
+
 if (dietGalleryBtn && dietFileInput) {
   dietGalleryBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
 
-    // sicherstellen: kein Kamera-capture vom letzten mal
-    try { dietFileInput.removeAttribute('capture'); } catch {}
-    dietFileInput.click();
+    openDietFileDialog(() => {
+      // sicherstellen: kein Kamera-capture vom letzten mal
+      try { dietFileInput.removeAttribute('capture'); } catch {}
+    });
   });
 }
 
@@ -447,7 +526,10 @@ if (dietUploadArea && dietFileInput) {
     if (isClickFromDietPickButtons(e)) return;
 
     e.preventDefault();
-    dietFileInput.click();
+
+    openDietFileDialog(() => {
+      try { dietFileInput.removeAttribute('capture'); } catch {}
+    });
   });
 }
 
@@ -455,14 +537,15 @@ if (dietCameraBtn && dietFileInput) {
   dietCameraBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
 
-    try {
-      dietFileInput.setAttribute('capture', 'environment');
-    } catch {}
-    dietFileInput.click();
-    setTimeout(() => {
-      try { dietFileInput.removeAttribute('capture'); } catch {}
-    }, 500);
+    openDietFileDialog(() => {
+      try { dietFileInput.setAttribute('capture', 'environment'); } catch {}
+      // capture wieder entfernen, damit Galerie später normal geht
+      setTimeout(() => {
+        try { dietFileInput.removeAttribute('capture'); } catch {}
+      }, 500);
+    });
   });
 }
 
