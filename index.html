@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalorien-Tracker</title>
+
+  <!-- STYLES -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- ✅ HTML lang früh setzen -->
+  <script>
+    (function () {
+      try {
+        const key = 'masterAssistantLangV1';
+        const supported = ['de', 'en', 'fr', 'it'];
+        const raw = localStorage.getItem(key);
+        const lang = supported.includes(raw) ? raw : 'de';
+        document.documentElement.lang = lang;
+      } catch (e) {
+        // Falls localStorage gesperrt ist: einfach auf 'de' lassen
+      }
+    })();
+  </script>
+</head>
+
+<body>
+
+  <noscript>
+    <div class="module-card">
+      <h2>JavaScript erforderlich</h2>
+      <p class="section-subtitle">
+        Diese App benötigt JavaScript, um zu funktionieren. Bitte aktiviere JavaScript in deinem Browser.
+      </p>
+    </div>
+  </noscript>
+
+  <div class="app-shell">
+
+    <!-- HEADER -->
+    <header class="app-header">
+
+      <!-- LINKS: Titel + Subtitle -->
+      <div class="app-header-left">
+        <h1 class="app-title">Kalorien-Tracker</h1>
+        <p class="app-subtitle">Foto analysieren &amp; Tagesbudget tracken.</p>
+      </div>
+
+      <!-- RECHTS: Sprachwahl -->
+      <div class="app-header-right">
+        <div class="app-lang-select">
+          <select id="lang-select" aria-label="Sprache wählen">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+          </select>
+        </div>
+      </div>
+
+    </header>
+
+    <!-- ========================================================= -->
+    <!--   APP: ESSENSANALYSE (Hauptscreen)                         -->
+    <!-- ========================================================= -->
+
+    <section id="section-diet" class="module-card">
+
+      <!-- Diet-App Container -->
+      <div class="diet-app">
+
+        <!-- ✅ Loading Overlay (wird per JS ein-/ausgeblendet) -->
+        <div id="diet-loading-overlay" class="diet-loading-overlay hidden" aria-live="polite" aria-busy="true">
+          <div class="diet-loading-card">
+            <div class="diet-spinner" aria-hidden="true"></div>
+            <div class="diet-loading-title">Analysiere…</div>
+            <div class="diet-loading-subtitle">Bitte kurz warten. Das kann ein paar Sekunden dauern.</div>
+          </div>
+        </div>
+
+        <header>
+          <div class="icon">🥗</div>
+          <div>
+            <h1>Essensanalyse</h1>
+            <div class="subtitle">
+              Mach ein Foto von deinem Essen und erhalte eine grobe Kalorien-Schätzung. (Nur Schätzwert – keine Garantie.)
+            </div>
+          </div>
+        </header>
+
+        <div class="grid">
+
+          <!-- LEFT CARD -->
+          <div class="card">
+            <h2>1. Foto auswählen</h2>
+            <div class="helper-text">
+              Wähle ein Bild aus der Galerie oder mach ein neues Foto. Am besten ist der ganze Teller gut sichtbar.
+            </div>
+
+            <div class="button-row">
+              <button type="button" class="secondary" id="diet-camera-btn">
+                📷 Foto mit Kamera
+              </button>
+              <button type="button" class="secondary" id="diet-gallery-btn">
+                🖼️ Bild aus Galerie
+              </button>
+            </div>
+
+            <div class="upload-area" id="diet-upload-area">
+              <div class="preview" id="diet-preview">
+                <img id="diet-image-preview" alt="Vorschau" />
+                <span id="diet-preview-name"></span>
+              </div>
+              <div class="items-placeholder" id="diet-upload-hint">
+                Tippe hier oder nutze die Buttons oben, um ein Foto auszuwählen.
+              </div>
+            </div>
+
+            <!-- File Input -->
+            <input type="file" id="diet-file-input" accept="image/*" class="hidden-file-input" />
+
+            <button class="primary" id="diet-analyze-btn" type="button" disabled>
+              <span id="diet-btn-text">Analysieren</span>
+            </button>
+
+            <div class="status" id="diet-status"></div>
+          </div>
+
+          <!-- RIGHT CARD -->
+          <div class="card">
+            <h2>2. Ergebnis</h2>
+            <div class="helper-text">
+              Die Werte sind nur geschätzte Durchschnittswerte – sie ersetzen keine professionelle Ernährungsberatung.
+            </div>
+
+            <!-- Kalorien-Tagesbudget -->
+            <div class="daily-budget">
+              <h3>Kalorien-Tagesbudget</h3>
+
+              <div class="daily-budget-info">
+                <span id="diet-budget-goal-label">Kein Ziel gesetzt</span>
+              </div>
+
+              <div class="daily-budget-row">
+                <label for="diet-budget-goal">Tagesziel in kcal</label>
+                <input id="diet-budget-goal" type="number" min="0" step="10" inputmode="numeric" />
+                <button id="diet-budget-save" type="button" class="secondary">
+                  Ziel speichern
+                </button>
+              </div>
+
+              <div class="daily-budget-remaining" id="diet-budget-remaining-row" style="display:block;">
+                Heute gegessen: <span id="diet-budget-today-consumed">0 kcal</span><br />
+                Verbleibend: <span id="diet-budget-today-remaining">– kcal</span>
+              </div>
+
+              <div class="diet-budget-bar-outer" style="margin-top:10px;">
+                <div id="diet-budget-bar-inner" class="diet-budget-bar-inner"></div>
+              </div>
+
+              <div id="diet-budget-warning" class="status" style="margin-top:10px;">
+                Noch keine Einträge für heute – jede Essensanalyse aktualisiert dein Tagesbudget.
+              </div>
+
+              <div class="history-section" style="margin-top:16px;">
+                <h3>Verlauf der letzten 7 Tage</h3>
+                <div id="diet-budget-chart"></div>
+              </div>
+            </div>
+
+            <!-- Ergebnis-Block -->
+            <div class="pill" id="diet-daily-pill" style="display:none;">
+              <span id="diet-daily-pill-text"></span>
+            </div>
+
+            <div class="result-total" id="diet-total-calories">Noch keine Analyse</div>
+            <div class="result-note" id="diet-result-note"></div>
+
+            <div class="items-list" id="diet-items-list">
+              <div class="items-placeholder">
+                Lade ein Foto hoch und starte die Analyse, um die Bestandteile und geschätzten Kalorien zu sehen.
+              </div>
+            </div>
+
+            <!-- Debug (optional) -->
+            <div id="diet-debug-toggle" style="margin-top:12px;" class="muted">Debug anzeigen</div>
+            <div id="diet-debug-panel" style="display:none;">
+              <pre id="diet-debug-content"></pre>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="diet-footer">
+          Nur Schätzwerte – keine Garantie auf Genauigkeit.
+        </div>
+      </div>
+
+      <!-- Modal (Zutaten bearbeiten) -->
+      <div id="diet-ingredient-modal" class="modal hidden">
+        <div class="modal-content">
+          <h3>Zutat bearbeiten</h3>
+
+          <label class="modal-label">
+            Name
+            <input id="ingredient-name" class="input-text" type="text" />
+          </label>
+
+          <label class="modal-label">
+            Gewicht (g)
+            <input id="ingredient-weight" class="input-text" type="number" />
+          </label>
+
+          <label class="modal-label">
+            Kalorien
+            <input id="ingredient-calories" class="input-text" type="number" />
+          </label>
+
+          <div class="modal-actions">
+            <button id="ingredient-cancel-btn" class="btn btn-secondary">
+              Abbrechen
+            </button>
+            <button id="ingredient-save-btn" class="btn btn-primary">
+              Speichern
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="script.js"></script>
+
+  <!-- Mini-Bindings: NUR File-Picker öffnen (kein doppeltes "change") -->
+  <script>
+    (function () {
+      const fileInput = document.getElementById('diet-file-input');
+      const galleryBtn = document.getElementById('diet-gallery-btn');
+      const uploadArea = document.getElementById('diet-upload-area');
+
+      if (galleryBtn && fileInput) {
+        galleryBtn.addEventListener('click', () => fileInput.click());
+      }
+      if (uploadArea && fileInput) {
+        uploadArea.addEventListener('click', () => fileInput.click());
+      }
+    })();
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,948 @@
+/* =====================================================================
+   GLOBAL STYLES – THEME
+   ===================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-body: #020617;
+  --bg-card: #020617;
+  --bg-card-soft: #0b1220;
+  --bg-chip: #0f172a;
+  --accent: #22c55e;
+  --accent-soft: rgba(34, 197, 94, 0.12);
+  --accent-strong: #16a34a;
+  --accent-danger: #f97373;
+  --border-soft: rgba(148, 163, 184, 0.2);
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.9);
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-pill: 999px;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at top left, #0f172a 0, #020617 45%, #000 100%);
+}
+
+/* =====================================================================
+   LAYOUT
+   ===================================================================== */
+
+.app-shell {
+  max-width: 1120px;
+  margin: 32px auto 64px;
+  padding: 0 20px 40px;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    margin-top: 20px;
+    padding-inline: 16px;
+  }
+}
+
+/* Header: Links Titel/Subtitel, rechts Sprachwahl */
+.app-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app-header-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+/* Mobile: Sprache unter Titel */
+@media (max-width: 520px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .app-header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.app-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin: 0 0 6px;
+}
+
+.app-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   HEADER: Sprachwahl
+   ===================================================================== */
+
+.app-lang-select {
+  margin-top: 0;
+}
+
+.app-lang-select select {
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.94);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.8);
+  outline: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.1s ease;
+}
+
+.app-lang-select select:hover {
+  transform: translateY(-1px);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.app-lang-select select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.6);
+}
+
+/* =====================================================================
+   GENERISCHE MODULE-KARTEN (Noscript & Container)
+   ===================================================================== */
+
+.module-card {
+  margin-top: 26px;
+  padding: 22px 22px 26px;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(circle at top left, #020617, #020617 60%, #000);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: var(--shadow-soft);
+}
+
+/* ✅ FIX: Nur direkte Modul-Überschriften der Outer-Cards stylen
+   (nicht die Diet-Karten "1. Foto auswählen" etc.) */
+.module-card > h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.module-card .section-subtitle {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   generische Formular-Elemente
+   ===================================================================== */
+
+.input-text,
+.input-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text-main);
+  font-size: 14px;
+  outline: none;
+}
+
+.input-text:focus,
+.input-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.6);
+}
+
+textarea.input-text {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* =====================================================================
+   Buttons (nur falls irgendwo verwendet)
+   ===================================================================== */
+
+.btn {
+  appearance: none;
+  border-radius: var(--radius-pill);
+  border: none;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    background 0.12s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #022c22;
+  box-shadow: 0 10px 25px rgba(22, 163, 74, 0.55);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(22, 163, 74, 0.7);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-secondary {
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-main);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.btn-secondary:hover {
+  background: #020617;
+}
+
+/* Kleinkram */
+.muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =====================================================================
+   DIÄT-APP STYLING (Haupt-App)
+   ===================================================================== */
+
+/* eigene Farb-Variablen nur innerhalb des Diet-Sections */
+#section-diet {
+  --bg: #0f172a;
+  --bg-soft: #111827;
+  --bg-card: #f9fafb;
+  --accent: #16a34a;
+  --accent-soft: rgba(22, 163, 74, 0.12);
+  --border: #e5e7eb;
+  --text-main-diet: #020617;
+  --text-muted-diet: #6b7280;
+  --danger: #dc2626;
+}
+
+/* Modulkarte für Diät-App selbst durchsichtig machen,
+   damit die eingebaute App ihre eigene Karte bildet */
+#section-diet.module-card {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* App-Container */
+#section-diet .diet-app {
+  max-width: 960px;
+  margin: 0 auto 32px;
+  background: var(--bg-soft);
+  border-radius: 28px;
+  padding: 28px 26px 30px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(15, 23, 42, 0.9);
+}
+
+/* Header innerhalb der Diät-App */
+#section-diet .diet-app header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+#section-diet .diet-app header .icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+#section-diet .diet-app h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #f9fafb;
+}
+
+#section-diet .diet-app .subtitle {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  color: #cbd5f5;
+}
+
+/* Layout: 1 oder 2 Spalten */
+#section-diet .diet-app .grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr);
+  gap: 18px;
+  margin-top: 12px;
+}
+
+@media (max-width: 860px) {
+  #section-diet .diet-app {
+    padding: 20px 18px 24px;
+    border-radius: 22px;
+  }
+
+  #section-diet .diet-app .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #section-diet .diet-app header {
+    align-items: flex-start;
+  }
+
+  #section-diet .diet-app h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Karten */
+#section-diet .diet-app .card {
+  background: var(--bg-card);
+  border-radius: 18px;
+  padding: 18px 18px 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  position: relative; /* ✅ nötig für Loading-Overlay */
+}
+
+#section-diet .diet-app .card h2 {
+  margin: 0 0 14px;
+  font-size: 1.2rem;
+  color: var(--text-main-diet);
+}
+
+#section-diet .diet-app .helper-text {
+  font-size: 0.9rem;
+  color: var(--text-muted-diet);
+  margin-bottom: 18px;
+  line-height: 1.55;
+}
+
+/* Button-Reihe */
+#section-diet .diet-app .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#section-diet button {
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+/* Primärer Button (Analyse starten) */
+#section-diet button.primary {
+  width: 100%;
+  margin-top: 14px;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #ecfdf5;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 12px rgba(22, 163, 74, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+
+#section-diet button.primary:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(22, 163, 74, 0.45);
+}
+
+#section-diet button.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Sekundäre Buttons */
+#section-diet button.secondary {
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #111827;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+  transition: background 0.1s ease, box-shadow 0.1s ease, transform 0.1s ease;
+}
+
+#section-diet button.secondary:hover {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.12);
+}
+
+#section-diet button.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Upload-Bereich */
+#section-diet .upload-area {
+  border-radius: 14px;
+  border: 1px dashed #d1d5db;
+  padding: 14px 12px;
+  background: #f3f4f6;
+  text-align: center;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Versteckte Datei-Inputs */
+#section-diet .hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  left: -9999px;
+}
+
+/* Vorschau */
+#section-diet .preview {
+  margin-top: 4px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+#section-diet .preview img {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  object-fit: cover;
+}
+
+#section-diet .preview span {
+  font-size: 0.78rem;
+  color: var(--text-muted-diet);
+}
+
+/* Status */
+#section-diet .status {
+  margin-top: 9px;
+  font-size: 0.82rem;
+  color: var(--text-muted-diet);
+  min-height: 1.1em;
+}
+
+#section-diet .status.error {
+  color: var(--danger);
+}
+
+/* Ergebnisbereich / Tagesziel */
+#section-diet .daily-budget {
+  margin-top: 12px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: #f2f4f5;
+  border: 1px solid #e5e7eb;
+  color: var(--text-main-diet);
+}
+
+#section-diet .daily-budget h3,
+#section-diet .daily-budget h4 {
+  color: var(--text-main-diet);
+  opacity: 1;
+}
+
+#section-diet .daily-budget-info {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main-diet);
+}
+
+#section-diet .daily-budget-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--text-main-diet);
+}
+
+#section-diet .daily-budget-row label {
+  color: var(--text-main-diet);
+  opacity: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+#section-diet .daily-budget-row input {
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  border: 1px solid #d1d5db;
+  box-sizing: border-box;
+}
+
+#section-diet #diet-budget-goal::placeholder {
+  color: rgba(2, 6, 23, 0.55);
+  opacity: 1;
+}
+
+#section-diet #diet-budget-goal-label {
+  color: var(--text-main-diet);
+  opacity: 1;
+}
+
+#section-diet .daily-budget-remaining {
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #eefdf3;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text-main-diet);
+}
+
+/* Budget Progress-Bar */
+#section-diet .diet-budget-bar-outer {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+
+#section-diet .diet-budget-bar-inner {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+#section-diet .diet-budget-bar-inner.over {
+  background: #dc2626;
+}
+
+/* Hinweis/Chart Text */
+#section-diet #diet-budget-warning,
+#section-diet #diet-budget-chart {
+  color: var(--text-muted-diet);
+  opacity: 1;
+}
+
+/* Pill */
+#section-diet .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+/* Gesamt-Kalorien */
+#section-diet .result-total {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 10px 0 6px;
+  color: var(--text-main-diet);
+}
+
+/* Beschreibung */
+#section-diet .result-note {
+  font-size: 0.9rem;
+  color: var(--text-muted-diet);
+  margin-bottom: 18px;
+  line-height: 1.55;
+}
+
+/* Liste der Bestandteile */
+#section-diet .items-list {
+  margin-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+#section-diet .items-placeholder {
+  font-size: 0.84rem;
+  color: var(--text-muted-diet);
+}
+
+#section-diet .item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e7eb;
+  font-size: 0.9rem;
+}
+
+#section-diet .item-left {
+  flex: 1 1 auto;
+}
+
+#section-diet .item-name {
+  font-weight: 500;
+  color: var(--text-main-diet);
+}
+
+#section-diet .item-comment {
+  font-size: 0.78rem;
+  color: var(--text-muted-diet);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+#section-diet .item-cal {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #ca8a04;
+}
+
+/* Verlauf */
+#section-diet .history-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #e5e7eb;
+}
+
+#section-diet .history-section h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main-diet);
+}
+
+#section-diet .diet-chart-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  height: 140px;
+  margin-top: 10px;
+}
+
+#section-diet .diet-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+#section-diet .diet-chart-value {
+  font-size: 12px;
+  color: var(--text-main-diet);
+  font-variant-numeric: tabular-nums;
+  min-height: 16px;
+}
+
+#section-diet .diet-chart-bar {
+  width: 100%;
+  border-radius: 10px;
+  background: rgba(22, 163, 74, 0.35);
+  border: 1px solid rgba(22, 163, 74, 0.35);
+}
+
+#section-diet .diet-chart-label {
+  font-size: 12px;
+  color: var(--text-muted-diet);
+}
+
+/* Footer der Diät-App */
+#section-diet .diet-footer {
+  margin-top: 18px;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  text-align: right;
+}
+
+/* =====================================================================
+   ✅ POLISH: Kalorien-Tracker UI – Inputs, Upload, Debug, Mobile
+   ===================================================================== */
+
+/* Upload-Area fühlt sich klickbar an */
+#section-diet .upload-area {
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+#section-diet .upload-area:hover {
+  background: #eef2f7;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+#section-diet .upload-area:active {
+  transform: translateY(0px);
+}
+
+/* Zutatenliste: Calorie-Input sauber stylen */
+#section-diet .item-cal-input {
+  width: 84px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: var(--text-main-diet);
+  font-size: 0.9rem;
+  font-weight: 600;
+  outline: none;
+  text-align: right;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+
+#section-diet .item-cal-input:focus {
+  border-color: rgba(22, 163, 74, 0.7);
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
+}
+
+/* Debug: Toggle klickbar + Panel hübsch */
+#section-diet #diet-debug-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: rgba(2, 6, 23, 0.04);
+  transition: background 0.12s ease, transform 0.08s ease;
+}
+
+#section-diet #diet-debug-toggle:hover {
+  background: rgba(2, 6, 23, 0.06);
+  transform: translateY(-1px);
+}
+
+#section-diet #diet-debug-panel {
+  margin-top: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px 12px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+#section-diet #diet-debug-panel pre {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Zutatenliste + Debug: Scrollbar dezent (Chromium/WebKit) */
+#section-diet .items-list::-webkit-scrollbar,
+#section-diet #diet-debug-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+#section-diet .items-list::-webkit-scrollbar-thumb,
+#section-diet #diet-debug-panel::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.18);
+  border-radius: 999px;
+}
+
+#section-diet .items-list::-webkit-scrollbar-track,
+#section-diet #diet-debug-panel::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 999px;
+}
+
+/* Mobile: Buttons untereinander (besser bedienbar) */
+@media (max-width: 520px) {
+  #section-diet .diet-app .button-row {
+    flex-direction: column;
+  }
+
+  #section-diet button.secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* =====================================================================
+   ✅ A) Loading Overlay + Spinner (für „Analyse läuft…“)
+   ===================================================================== */
+
+/*
+  Dieses Overlay wird von script.js während der Analyse in die linke Karte
+  (Foto auswählen) injiziert und wieder entfernt/toggle.
+*/
+#section-diet .diet-loading-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: rgba(249, 250, 251, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+#section-diet .diet-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  color: var(--text-main-diet);
+}
+
+#section-diet .diet-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 3px solid rgba(22, 163, 74, 0.18);
+  border-top-color: rgba(22, 163, 74, 0.95);
+  animation: dietSpin 0.9s linear infinite;
+}
+
+#section-diet .diet-loading-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+#section-diet .diet-loading-subtext {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  max-width: 260px;
+  line-height: 1.35;
+}
+
+@keyframes dietSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #section-diet .diet-spinner {
+    animation: none;
+  }
+}
+
+/* =====================================================================
+   ✅ B) Optional: Toast Styling (script.js nutzt Inline-Styles, aber CSS als Fallback)
+   ===================================================================== */
+
+#diet-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: 92vw;
+  width: 520px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  color: #e5e7eb;
+  font-size: 13px;
+  z-index: 9999;
+  display: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Inputs: Nummern-Pfeile ausblenden (Chromium/WebKit + Firefox) */
+#section-diet input[type="number"]::-webkit-outer-spin-button,
+#section-diet input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#section-diet input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Accessibility: sichtbarer Fokus */
+#section-diet button:focus-visible,
+.app-lang-select select:focus-visible {
+  outline: 2px solid rgba(22, 163, 74, 0.55);
+  outline-offset: 2px;
+}
