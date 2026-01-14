@@ -235,22 +235,6 @@
   <!-- SCRIPTS -->
   <script src="script.js"></script>
 
-  <!-- Mini-Bindings: NUR File-Picker öffnen (kein doppeltes "change") -->
-  <script>
-    (function () {
-      const fileInput = document.getElementById('diet-file-input');
-      const galleryBtn = document.getElementById('diet-gallery-btn');
-      const uploadArea = document.getElementById('diet-upload-area');
-
-      if (galleryBtn && fileInput) {
-        galleryBtn.addEventListener('click', () => fileInput.click());
-      }
-      if (uploadArea && fileInput) {
-        uploadArea.addEventListener('click', () => fileInput.click());
-      }
-    })();
-  </script>
-
 </body>
 
 </html>
