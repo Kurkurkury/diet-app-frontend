@@ -3,15 +3,14 @@ console.log('[Diet-App] script.js geladen');
 
 // -------------------------------------------------------------
 // ✅ Release-taugliche Basis (Store-Ready Schritt 1):
-// - API Base automatisch (localhost vs. deployed)
-// - Wenn über file:// geöffnet: klare Meldung + Analyse deaktiviert
-// - Backend-Healthcheck (Backend erreichbar?) + UI-Status + Analyse-Button Sperre
-// - Kein UTC-Date-Bug beim Tagesbudget (lokales Datum!)
-// - Debug nur bei ?debug=1 sichtbar
+// - API Base fix auf Render
+// - Backend-Healthcheck + UI-Status + Analyse-Button Sperre
+// - Debug nur wenn ?debug=1
 // - Safer fetch mit Timeout
-// - Fehler als Toast (nicht nur alert)
-// - ✅ Loading Overlay + UI Lock während Analyse
-// - ✅ NEU: Sichtbares Fallback-Rendering, falls DOM-IDs nicht passen
+// - Fehler als Toast
+// - Loading Overlay + UI Lock während Analyse
+// - Sichtbares Fallback-Rendering, falls DOM-IDs nicht passen
+// - ✅ FIX: File-Picker öffnet sich nicht mehr doppelt (Click-Bubbling / Guard)
 // -------------------------------------------------------------
 
 // -------------------------------------------------------------
@@ -251,7 +250,7 @@ const dietCameraBtn = document.getElementById('diet-camera-btn');
 
 let currentDietAnalysis = null;
 
-// ✅ Expose minimal debug state (damit du in der Console schauen kannst)
+// ✅ Expose minimal debug state
 window.__DIET_APP__ = {
   get apiBase() { return API_BASE; },
   get backendReachable() { return backendReachable; },
@@ -262,6 +261,26 @@ function setDietStatus(text, isError = false) {
   if (!dietStatusEl) return;
   dietStatusEl.textContent = text || '';
   dietStatusEl.classList.toggle('error', !!isError);
+}
+
+// -------------------------------------------------------------
+// ✅ FIX: File-Picker Guard (verhindert Doppelt-Öffnen)
+// -------------------------------------------------------------
+let __filePickerLocked = false;
+function openFilePickerOnce() {
+  if (!dietFileInput) return;
+
+  // wenn Picker bereits offen / gerade getriggert: ignorieren
+  if (__filePickerLocked) return;
+
+  __filePickerLocked = true;
+  try {
+    // wichtig: click MUSS im User-Click passieren → wir rufen es direkt im Handler auf
+    dietFileInput.click();
+  } finally {
+    // nach kurzem Delay wieder freigeben
+    setTimeout(() => { __filePickerLocked = false; }, 600);
+  }
 }
 
 // -------------------------------------------------------------
@@ -296,7 +315,10 @@ function setLeftCardLocked(locked) {
   if (overlay) overlay.style.pointerEvents = 'auto';
 }
 
-function showDietLoadingOverlay(title = 'Analyse läuft…', subtext = 'Bitte kurz warten – das kann je nach Bild 5–20 Sekunden dauern.') {
+function showDietLoadingOverlay(
+  title = 'Analyse läuft…',
+  subtext = 'Bitte kurz warten – das kann je nach Bild 5–20 Sekunden dauern.'
+) {
   const card = getLeftCardEl();
   if (!card) return;
 
@@ -361,7 +383,9 @@ function initDebugUI() {
   if (dietDebugPanel) dietDebugPanel.style.display = 'none';
 
   if (enabled && dietDebugToggleBtn && dietDebugPanel) {
-    dietDebugToggleBtn.addEventListener('click', () => {
+    dietDebugToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const visible = dietDebugPanel.style.display === 'block';
       dietDebugPanel.style.display = visible ? 'none' : 'block';
       dietDebugToggleBtn.textContent = visible ? 'Debug anzeigen' : 'Debug ausblenden';
@@ -412,19 +436,38 @@ if (dietFileInput) {
   });
 }
 
+// ✅ Buttons/Areas => Picker öffnen (mit Guard + stopPropagation)
 if (dietGalleryBtn && dietFileInput) {
-  dietGalleryBtn.addEventListener('click', () => dietFileInput.click());
-}
-if (dietUploadArea && dietFileInput) {
-  dietUploadArea.addEventListener('click', () => dietFileInput.click());
+  dietGalleryBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openFilePickerOnce();
+  });
 }
 
+if (dietUploadArea && dietFileInput) {
+  dietUploadArea.addEventListener('click', (e) => {
+    // Wenn Klick von Button/Input/etc. kommt -> NICHT Picker öffnen
+    const clickedInteractive = e.target.closest(
+      'button, a, input, textarea, select, label, [role="button"], .nav-item'
+    );
+    if (clickedInteractive) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    openFilePickerOnce();
+  });
+}
+
+// Kamera: capture hint
 if (dietCameraBtn && dietFileInput) {
-  dietCameraBtn.addEventListener('click', () => {
+  dietCameraBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
       dietFileInput.setAttribute('capture', 'environment');
     } catch {}
-    dietFileInput.click();
+    openFilePickerOnce();
     setTimeout(() => {
       try { dietFileInput.removeAttribute('capture'); } catch {}
     }, 500);
@@ -518,18 +561,17 @@ function renderIngredientsList(items) {
   });
 }
 
-// ✅ Fallback-Box (sichtbar, auch wenn IDs nicht passen)
+// ✅ Fallback-Box
 function ensureFallbackResultBox() {
   let box = document.getElementById('diet-fallback-result');
   if (box) return box;
 
-  // Wir hängen es in die Ergebnis-Card (rechts), wenn möglich – sonst ans Ende vom Body.
   let anchor = null;
   try {
     const grid = document.querySelector('#section-diet .diet-app .grid');
     if (grid) {
       const cards = grid.querySelectorAll('.card');
-      if (cards && cards[1]) anchor = cards[1]; // zweite Card = Ergebnis
+      if (cards && cards[1]) anchor = cards[1];
     }
   } catch {}
 
@@ -573,13 +615,11 @@ function renderFallbackResult(normalized) {
 function renderDietResult(normalized) {
   currentDietAnalysis = normalized;
 
-  // ✅ Immer sichtbar: kurzer Toast
   try {
     const totalToast = Math.round(Number(normalized.totalCalories || 0));
     showToast(`Analyse: ${totalToast} kcal ✅`, 2200);
   } catch {}
 
-  // ✅ Fallback immer rendern (damit du sicher was siehst)
   try {
     renderFallbackResult(normalized);
   } catch {}
@@ -587,7 +627,6 @@ function renderDietResult(normalized) {
   const total = Math.round(Number(normalized.totalCalories || 0));
   const note = normalized.note || '';
 
-  // Wenn hier IDs fehlen, siehst du es zumindest im Fallback + Console
   if (!dietTotalCaloriesEl || !dietResultNoteEl || !dietItemsListEl) {
     console.warn('[Diet-App] Ergebnis-Elemente fehlen oder sind null:', {
       dietTotalCaloriesEl: !!dietTotalCaloriesEl,
@@ -632,7 +671,6 @@ function normalizeBackendPayload(data) {
   const b = (data && data.ok && data.data) ? data.data : null;
   const src = a || b || data || {};
 
-  // Support: /analysis enthält ingredients[] und/oder items[]
   if (Array.isArray(src.items)) {
     return {
       dishName: src.dishName || '',
@@ -670,7 +708,7 @@ function normalizeBackendPayload(data) {
   };
 }
 
-// Analyse: /diet/analyze (FormData), fallback /analyze-food (base64-json)
+// Analyse
 async function analyzeCurrentImage() {
   if (!backendReachable) {
     if (String(location.protocol || '').toLowerCase() === 'file:') {
@@ -708,7 +746,6 @@ async function analyzeCurrentImage() {
       })()
     }, 90000);
 
-
     debugLog('Response /diet/analyze status=', res.status);
 
     if (!res.ok) {
@@ -720,7 +757,6 @@ async function analyzeCurrentImage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64 })
       }, 90000);
-
 
       debugLog('Response /analyze-food status=', res.status);
     }
@@ -756,6 +792,7 @@ async function analyzeCurrentImage() {
 if (dietAnalyzeBtn) {
   dietAnalyzeBtn.addEventListener('click', (e) => {
     e.preventDefault();
+    e.stopPropagation(); // ✅ wichtig gegen Click-Bubbling
     analyzeCurrentImage();
   });
 }
@@ -774,7 +811,6 @@ const dietBudgetChartContainer = document.getElementById('diet-budget-chart');
 
 const LS_DIET_BUDGET_KEY = 'dietDailyCalorieBudgetV1';
 
-// ✅ Wichtig: lokales Datum (nicht UTC)
 function getTodayKey() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -925,8 +961,9 @@ function updateDietBudgetAfterAnalysis(totalCalories) {
 }
 
 if (dietBudgetSaveBtn && dietBudgetGoalInput) {
-  dietBudgetSaveBtn.addEventListener('click', e => {
+  dietBudgetSaveBtn.addEventListener('click', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     const raw = dietBudgetGoalInput.value.trim();
     const val = Number(raw);
     if (!raw || isNaN(val) || val <= 0) {
