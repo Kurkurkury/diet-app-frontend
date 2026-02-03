@@ -113,7 +113,7 @@ async function checkBackendReachable() {
   }
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/health`, { method: 'GET' }, 8000);
+    const res = await fetchWithTimeout(`${API_BASE}/health`, { method: 'GET' }, 20000);
     backendReachable = !!res && res.ok;
     return backendReachable;
   } catch (e) {
@@ -1078,6 +1078,29 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   updateAnalyzeButtonState();
+
+  // Auto-retry to handle Render cold start
+  let tries = 0;
+  const maxTries = 25; // ~150 seconds
+  const retryInterval = setInterval(async () => {
+    if (backendReachable) {
+      clearInterval(retryInterval);
+      return;
+    }
+
+    tries++;
+    const ok2 = await checkBackendReachable();
+    if (ok2) {
+      setDietStatus('Backend verbunden ✅');
+      updateAnalyzeButtonState();
+      clearInterval(retryInterval);
+      return;
+    }
+
+    if (tries >= maxTries) {
+      clearInterval(retryInterval);
+    }
+  }, 6000);
 
   console.log('[Diet-App] API_BASE =', API_BASE);
   console.log('[Diet-App] backendReachable =', backendReachable);
