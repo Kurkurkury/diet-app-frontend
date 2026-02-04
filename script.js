@@ -126,11 +126,11 @@ function renderApiStatus() {
     return;
   }
   if (!backendReachable) {
-    dietApiStatusEl.textContent = 'API Status: Backend down oder nicht erreichbar.';
+    dietApiStatusEl.textContent = 'Backend down…';
     return;
   }
   const latencyText = backendLatencyMs != null ? ` (${backendLatencyMs} ms)` : '';
-  dietApiStatusEl.textContent = `API Status: Backend OK${latencyText}`;
+  dietApiStatusEl.textContent = `Backend OK${latencyText}`;
 }
 
 async function checkBackendReachable() {
@@ -276,6 +276,7 @@ const dietMacroCaloriesEl = document.getElementById('diet-macro-calories');
 const dietMacroProteinEl = document.getElementById('diet-macro-protein');
 const dietMacroFatEl = document.getElementById('diet-macro-fat');
 const dietMacroCarbsEl = document.getElementById('diet-macro-carbs');
+const dietMacroEstimateNoteEl = document.getElementById('diet-macro-estimate-note');
 const dietPortionButtons = document.getElementById('diet-portion-buttons');
 const dietPortionRange = document.getElementById('diet-portion-range');
 const dietPortionLabel = document.getElementById('diet-portion-label');
@@ -692,6 +693,7 @@ function renderIngredientsList(items) {
       if (dietMacroProteinEl) dietMacroProteinEl.textContent = `${formatNumber(scaled?.protein_g || 0, 1)} g`;
       if (dietMacroFatEl) dietMacroFatEl.textContent = `${formatNumber(scaled?.fat_g || 0, 1)} g`;
       if (dietMacroCarbsEl) dietMacroCarbsEl.textContent = `${formatNumber(scaled?.carbs_g || 0, 1)} g`;
+      updateMacroEstimateNote(currentDietAnalysis?.macrosEstimated);
       renderDietBudgetUI();
     });
   });
@@ -764,6 +766,12 @@ function estimateMacrosFromCalories(calories) {
   };
 }
 
+function updateMacroEstimateNote(macrosEstimated) {
+  if (!dietMacroEstimateNoteEl) return;
+  dietMacroEstimateNoteEl.style.display = macrosEstimated ? 'block' : 'none';
+  dietMacroEstimateNoteEl.textContent = macrosEstimated ? 'Makros geschätzt' : '';
+}
+
 function syncPortionUI(multiplier) {
   if (dietPortionRange) dietPortionRange.value = String(multiplier);
   if (dietPortionLabel) dietPortionLabel.textContent = `${multiplier}x`;
@@ -777,7 +785,7 @@ function syncPortionUI(multiplier) {
 }
 
 function setPortionMultiplier(multiplier, options = {}) {
-  const safe = Math.min(3, Math.max(0.5, toNumber(multiplier, 1) || 1));
+  const safe = Math.min(2, Math.max(0.5, toNumber(multiplier, 1) || 1));
   currentPortionMultiplier = safe;
   syncPortionUI(safe);
 
@@ -1160,6 +1168,7 @@ function renderDietResult(normalized, options = {}) {
   if (dietMacroProteinEl) dietMacroProteinEl.textContent = `${formatNumber(scaled?.protein_g || 0, 1)} g`;
   if (dietMacroFatEl) dietMacroFatEl.textContent = `${formatNumber(scaled?.fat_g || 0, 1)} g`;
   if (dietMacroCarbsEl) dietMacroCarbsEl.textContent = `${formatNumber(scaled?.carbs_g || 0, 1)} g`;
+  updateMacroEstimateNote(!!currentDietAnalysis?.macrosEstimated);
 
   if (dietSaveEntryBtn) {
     dietSaveEntryBtn.disabled = !currentDietAnalysis;
@@ -1174,7 +1183,7 @@ function renderDietResult(normalized, options = {}) {
 function normalizeBackendPayload(data) {
   const a = (data && data.result) ? data.result : null;
   const b = (data && data.analysis) ? data.analysis : null;
-  const c = (data && data.ok && data.data) ? data.data : null;
+  const c = (data && data.data) ? data.data : null;
   const src = a || b || c || data || {};
 
   const calories = toNumber(src.calories_kcal ?? src.totalCalories ?? 0, 0);
@@ -1244,13 +1253,13 @@ function normalizeBackendPayload(data) {
   };
 }
 
-// Analyse: /analyze-food (FormData), fallback /analyze-food (base64-json)
+// Analyse: /analyze-food (base64-json)
 async function analyzeCurrentImage() {
   if (!backendReachable) {
     if (String(location.protocol || '').toLowerCase() === 'file:') {
       showError('Analyse geht hier nicht: bitte über Live Server öffnen (nicht per Doppelklick).');
     } else {
-      showError('Backend nicht erreichbar. Bitte Backend starten oder deployed Version nutzen.');
+      showError('Backend nicht erreichbar. Bitte später erneut versuchen.');
     }
     updateAnalyzeButtonState();
     return;
@@ -1270,32 +1279,19 @@ async function analyzeCurrentImage() {
   setDietStatus('Bild wird analysiert...');
 
   try {
-    debugLog('POST', `${API_BASE}/analyze-food`, 'file=', file?.name, file?.type, file?.size);
+    const base64 = await fileToBase64Raw(file);
+    debugLog('POST', `${API_BASE}/analyze-food`, 'base64Len=', base64?.length);
 
-    let res = await fetchWithTimeout(`${API_BASE}/analyze-food`, {
+    const payload = { imageBase64: base64 };
+    if (isDebugEnabled()) payload.debug = true;
+
+    const res = await fetchWithTimeout(`${API_BASE}/analyze-food`, {
       method: 'POST',
-      body: (() => {
-        const fd = new FormData();
-        fd.append('image', file);
-        if (isDebugEnabled()) fd.append('debug', '1');
-        return fd;
-      })()
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     }, 90000);
 
     debugLog('Response /analyze-food status=', res.status);
-
-    if (!res.ok) {
-      const base64 = await fileToBase64Raw(file);
-      debugLog('Fallback POST', `${API_BASE}/analyze-food`, 'base64Len=', base64?.length);
-
-      res = await fetchWithTimeout(`${API_BASE}/analyze-food`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64 })
-      }, 90000);
-
-      debugLog('Response /analyze-food status=', res.status);
-    }
 
     if (!res.ok) {
       throw new Error(`Analyse fehlgeschlagen (Status ${res.status})`);
@@ -1489,10 +1485,10 @@ function renderDietBudgetUI() {
   if (dietBudgetWarning) {
     if (!goal || goal <= 0) {
       dietBudgetWarning.textContent =
-        'Setze ein Tagesziel, damit dein Kalorienbudget automatisch nach jeder Analyse verfolgt wird.';
+        'Setze ein Tagesziel, damit dein Kalorienbudget automatisch aus deinem Tageslog berechnet wird.';
     } else if (consumed === 0) {
       dietBudgetWarning.textContent =
-        'Noch keine Mahlzeit heute erfasst – sobald du etwas analysierst, wird dein Tagesbudget aktualisiert.';
+        'Noch keine Mahlzeit heute erfasst – speichere einen Eintrag, um dein Tagesbudget zu aktualisieren.';
     } else if (consumed < goal) {
       dietBudgetWarning.textContent =
         `Du liegst noch unter deinem Tagesziel. Verbleibend: ${goal - consumed} kcal.`;
@@ -1547,7 +1543,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   } else if (ok) {
     setDietStatus('Backend verbunden ✅');
   } else {
-    setDietStatus('Backend nicht erreichbar. Bitte Backend starten (Port 4000) oder deployed Version nutzen.', true);
+    setDietStatus('Backend nicht erreichbar. Bitte später erneut versuchen.', true);
   }
 
   updateAnalyzeButtonState();

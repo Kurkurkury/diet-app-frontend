@@ -161,7 +161,7 @@
               </div>
 
               <div id="diet-budget-warning" class="status" style="margin-top:10px;">
-                Noch keine Einträge für heute – jede Essensanalyse aktualisiert dein Tagesbudget.
+                Noch keine Einträge für heute – speichere Einträge, um dein Tagesbudget zu aktualisieren.
               </div>
 
               <div class="history-section" style="margin-top:16px;">
@@ -194,6 +194,9 @@
                 <span class="macro-value" id="diet-macro-carbs">0 g</span>
               </div>
             </div>
+            <div id="diet-macro-estimate-note" class="macro-estimate-note muted" style="display:none;">
+              Makros geschätzt
+            </div>
             <div class="result-note" id="diet-result-note"></div>
 
             <div class="portion-controls">
@@ -206,9 +209,8 @@
                 <button type="button" class="secondary" data-multiplier="1">1x</button>
                 <button type="button" class="secondary" data-multiplier="1.5">1.5x</button>
                 <button type="button" class="secondary" data-multiplier="2">2x</button>
-                <button type="button" class="secondary" data-multiplier="3">3x</button>
               </div>
-              <input id="diet-portion-range" type="range" min="0.5" max="3" step="0.5" value="1" />
+              <input id="diet-portion-range" type="range" min="0.5" max="2" step="0.5" value="1" />
             </div>
 
             <label class="notes-field">
@@ -217,7 +219,7 @@
             </label>
 
             <button id="diet-save-entry" type="button" class="primary" disabled>
-              Speichern im Tageslog
+              Eintrag speichern
             </button>
 
             <div class="items-list" id="diet-items-list">
