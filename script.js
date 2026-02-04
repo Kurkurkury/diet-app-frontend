@@ -19,16 +19,7 @@ console.log('[Diet-App] script.js geladen');
 // -------------------------------------------------------------
 // 1) API BASE
 // -------------------------------------------------------------
-const API_ROOT = (() => {
-  try {
-    const qs = new URLSearchParams(location.search);
-    if (qs.get('prod') === '1') return 'https://diet-photo-backend.onrender.com';
-
-    const host = String(location.hostname || '').toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:4000';
-  } catch {}
-  return 'https://diet-photo-backend.onrender.com';
-})();
+const API_ROOT = 'https://diet-photo-backend.onrender.com';
 const API_BASE = `${API_ROOT}/api`;
 
 // -------------------------------------------------------------
