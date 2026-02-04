@@ -1244,7 +1244,7 @@ function normalizeBackendPayload(data) {
   };
 }
 
-// Analyse: /diet/analyze (FormData), fallback /analyze-food (base64-json)
+// Analyse: /analyze-food (FormData), fallback /analyze-food (base64-json)
 async function analyzeCurrentImage() {
   if (!backendReachable) {
     if (String(location.protocol || '').toLowerCase() === 'file:') {
@@ -1270,9 +1270,9 @@ async function analyzeCurrentImage() {
   setDietStatus('Bild wird analysiert...');
 
   try {
-    debugLog('POST', `${API_BASE}/diet/analyze`, 'file=', file?.name, file?.type, file?.size);
+    debugLog('POST', `${API_BASE}/analyze-food`, 'file=', file?.name, file?.type, file?.size);
 
-    let res = await fetchWithTimeout(`${API_BASE}/diet/analyze`, {
+    let res = await fetchWithTimeout(`${API_BASE}/analyze-food`, {
       method: 'POST',
       body: (() => {
         const fd = new FormData();
@@ -1282,7 +1282,7 @@ async function analyzeCurrentImage() {
       })()
     }, 90000);
 
-    debugLog('Response /diet/analyze status=', res.status);
+    debugLog('Response /analyze-food status=', res.status);
 
     if (!res.ok) {
       const base64 = await fileToBase64Raw(file);
