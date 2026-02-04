@@ -137,6 +137,12 @@ body {
   font-weight: 600;
 }
 
+.macro-estimate-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
 .portion-controls {
   margin: 14px 0 16px;
   padding: 12px;
