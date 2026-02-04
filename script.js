@@ -18,7 +18,15 @@ console.log('[Diet-App] script.js geladen');
 // -------------------------------------------------------------
 // 1) API BASE
 // -------------------------------------------------------------
-const API_BASE = "https://diet-app-backend-new.onrender.com/api";
+const API_ROOT = (() => {
+  try {
+    const host = String(location.hostname || '').toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:4000';
+  } catch {}
+  return 'https://diet-photo-backend.onrender.com';
+})();
+
+const API_BASE = `${API_ROOT}/api`;
 
 // -------------------------------------------------------------
 // 2) Toast / Fehleranzeige
@@ -71,6 +79,16 @@ function showError(message) {
   } catch {}
 }
 
+function toNumber(value, fallback = 0) {
+  const num = Number(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function formatNumber(value, digits = 0) {
+  const num = toNumber(value, 0);
+  return num.toFixed(digits);
+}
+
 // -------------------------------------------------------------
 // 3) Safer fetch mit Timeout
 // -------------------------------------------------------------
@@ -105,19 +123,41 @@ function debugLog(...args) {
 // 5) Backend Reachability / Healthcheck
 // -------------------------------------------------------------
 let backendReachable = false;
+let backendLatencyMs = null;
+
+function renderApiStatus() {
+  if (!dietApiStatusEl) return;
+  if (String(location.protocol || '').toLowerCase() === 'file:') {
+    dietApiStatusEl.textContent = 'API Status: file:// Modus (keine Requests möglich).';
+    return;
+  }
+  if (!backendReachable) {
+    dietApiStatusEl.textContent = 'API Status: Backend down oder nicht erreichbar.';
+    return;
+  }
+  const latencyText = backendLatencyMs != null ? ` (${backendLatencyMs} ms)` : '';
+  dietApiStatusEl.textContent = `API Status: Backend OK${latencyText}`;
+}
 
 async function checkBackendReachable() {
   if (String(location.protocol || '').toLowerCase() === 'file:') {
     backendReachable = false;
+    backendLatencyMs = null;
+    renderApiStatus();
     return false;
   }
 
   try {
+    const start = performance.now();
     const res = await fetchWithTimeout(`${API_BASE}/health`, { method: 'GET' }, 20000);
+    backendLatencyMs = Math.round(performance.now() - start);
     backendReachable = !!res && res.ok;
+    renderApiStatus();
     return backendReachable;
   } catch (e) {
     backendReachable = false;
+    backendLatencyMs = null;
+    renderApiStatus();
     return false;
   }
 }
@@ -146,7 +186,7 @@ function setCurrentLang(lang) {
     document.documentElement.lang = safe;
   } catch {}
 
-  if (currentDietAnalysis) renderDietResult(currentDietAnalysis);
+  if (currentDietAnalysis) renderDietResult(currentDietAnalysis, { showToast: false });
 }
 
 const INGREDIENT_TRANSLATIONS_DE = {
@@ -238,6 +278,19 @@ const dietStatusEl = document.getElementById('diet-status');
 const dietTotalCaloriesEl = document.getElementById('diet-total-calories');
 const dietResultNoteEl = document.getElementById('diet-result-note');
 const dietItemsListEl = document.getElementById('diet-items-list');
+const dietMacroCaloriesEl = document.getElementById('diet-macro-calories');
+const dietMacroProteinEl = document.getElementById('diet-macro-protein');
+const dietMacroFatEl = document.getElementById('diet-macro-fat');
+const dietMacroCarbsEl = document.getElementById('diet-macro-carbs');
+const dietPortionButtons = document.getElementById('diet-portion-buttons');
+const dietPortionRange = document.getElementById('diet-portion-range');
+const dietPortionLabel = document.getElementById('diet-portion-label');
+const dietSaveEntryBtn = document.getElementById('diet-save-entry');
+const dietEntryNotesInput = document.getElementById('diet-entry-notes');
+const dietTodaySummaryEl = document.getElementById('diet-today-summary');
+const dietTodayEntriesEl = document.getElementById('diet-today-entries');
+const dietHistoryListEl = document.getElementById('diet-history-list');
+const dietApiStatusEl = document.getElementById('diet-api-status');
 
 const dietDailyPill = document.getElementById('diet-daily-pill');
 const dietDailyPillText = document.getElementById('diet-daily-pill-text');
@@ -251,6 +304,8 @@ const dietUploadArea = document.getElementById('diet-upload-area');
 const dietCameraBtn = document.getElementById('diet-camera-btn');
 
 let currentDietAnalysis = null;
+let currentPortionMultiplier = 1;
+let editingEntryId = null;
 
 // ✅ Expose minimal debug state (damit du in der Console schauen kannst)
 window.__DIET_APP__ = {
@@ -624,6 +679,13 @@ function renderIngredientsList(items) {
       if (currentDietAnalysis && Array.isArray(currentDietAnalysis.items) && currentDietAnalysis.items[idx]) {
         currentDietAnalysis.items[idx].estimatedCalories = Number(input.value) || 0;
         currentDietAnalysis.totalCalories = total;
+        currentDietAnalysis.calories_kcal = total;
+        if (currentDietAnalysis.macrosEstimated) {
+          const estimated = estimateMacrosFromCalories(total);
+          currentDietAnalysis.protein_g = estimated.protein_g;
+          currentDietAnalysis.fat_g = estimated.fat_g;
+          currentDietAnalysis.carbs_g = estimated.carbs_g;
+        }
       }
 
       if (dietDailyPill && dietDailyPillText) {
@@ -631,6 +693,11 @@ function renderIngredientsList(items) {
         dietDailyPill.style.display = 'inline-flex';
       }
 
+      const scaled = getScaledAnalysis(currentDietAnalysis, currentPortionMultiplier);
+      if (dietMacroCaloriesEl) dietMacroCaloriesEl.textContent = `${formatNumber(scaled?.calories_kcal || 0)} kcal`;
+      if (dietMacroProteinEl) dietMacroProteinEl.textContent = `${formatNumber(scaled?.protein_g || 0, 1)} g`;
+      if (dietMacroFatEl) dietMacroFatEl.textContent = `${formatNumber(scaled?.fat_g || 0, 1)} g`;
+      if (dietMacroCarbsEl) dietMacroCarbsEl.textContent = `${formatNumber(scaled?.carbs_g || 0, 1)} g`;
       renderDietBudgetUI();
     });
   });
@@ -688,22 +755,378 @@ function renderFallbackResult(normalized) {
   box.style.display = 'block';
 }
 
-function renderDietResult(normalized) {
-  currentDietAnalysis = normalized;
+function estimateMacrosFromCalories(calories) {
+  const kcal = Math.max(0, toNumber(calories, 0));
+  if (!kcal) {
+    return { protein_g: 0, fat_g: 0, carbs_g: 0 };
+  }
+  const protein = (kcal * 0.3) / 4;
+  const fat = (kcal * 0.3) / 9;
+  const carbs = (kcal * 0.4) / 4;
+  return {
+    protein_g: Math.round(protein * 10) / 10,
+    fat_g: Math.round(fat * 10) / 10,
+    carbs_g: Math.round(carbs * 10) / 10
+  };
+}
+
+function syncPortionUI(multiplier) {
+  if (dietPortionRange) dietPortionRange.value = String(multiplier);
+  if (dietPortionLabel) dietPortionLabel.textContent = `${multiplier}x`;
+
+  if (dietPortionButtons) {
+    dietPortionButtons.querySelectorAll('button').forEach(btn => {
+      const val = toNumber(btn.dataset.multiplier, 1);
+      btn.classList.toggle('is-active', val === multiplier);
+    });
+  }
+}
+
+function setPortionMultiplier(multiplier, options = {}) {
+  const safe = Math.min(3, Math.max(0.5, toNumber(multiplier, 1) || 1));
+  currentPortionMultiplier = safe;
+  syncPortionUI(safe);
+
+  if (options.render !== false && currentDietAnalysis) {
+    renderDietResult(currentDietAnalysis, { showToast: false });
+  }
+}
+
+function getScaledAnalysis(analysis, multiplier) {
+  if (!analysis) return null;
+  const mult = toNumber(multiplier, 1) || 1;
+  return {
+    ...analysis,
+    calories_kcal: toNumber(analysis.calories_kcal, 0) * mult,
+    protein_g: toNumber(analysis.protein_g, 0) * mult,
+    fat_g: toNumber(analysis.fat_g, 0) * mult,
+    carbs_g: toNumber(analysis.carbs_g, 0) * mult
+  };
+}
+
+// -------------------------------------------------------------
+// Tageslog (localStorage)
+// -------------------------------------------------------------
+const LS_FITNESS_LOG_KEY = 'fitness_log_v1';
+
+function getLocalDateKey(date = new Date()) {
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+function makeId() {
+  try {
+    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  } catch {}
+  return `entry_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeEntry(raw) {
+  const timestamp = raw?.timestamp ? new Date(raw.timestamp) : new Date();
+  const safeTimestamp = isNaN(timestamp.getTime()) ? new Date() : timestamp;
+  return {
+    id: raw?.id || makeId(),
+    timestamp: safeTimestamp.toISOString(),
+    title: String(raw?.title || ''),
+    portionMultiplier: toNumber(raw?.portionMultiplier, 1) || 1,
+    calories_kcal: toNumber(raw?.calories_kcal, 0),
+    protein_g: toNumber(raw?.protein_g, 0),
+    fat_g: toNumber(raw?.fat_g, 0),
+    carbs_g: toNumber(raw?.carbs_g, 0),
+    notes: raw?.notes ? String(raw.notes) : '',
+    imageThumb: raw?.imageThumb || null
+  };
+}
+
+function loadLog() {
+  try {
+    const raw = localStorage.getItem(LS_FITNESS_LOG_KEY);
+    if (!raw) return { version: 1, entries: [] };
+    const parsed = JSON.parse(raw);
+    const entries = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.entries)
+        ? parsed.entries
+        : [];
+    return {
+      version: 1,
+      entries: entries.map(normalizeEntry)
+    };
+  } catch {
+    return { version: 1, entries: [] };
+  }
+}
+
+function saveLog(data) {
+  try {
+    localStorage.setItem(LS_FITNESS_LOG_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+function addEntry(entry) {
+  const data = loadLog();
+  const normalized = normalizeEntry(entry);
+  data.entries.unshift(normalized);
+  saveLog(data);
+  return normalized;
+}
+
+function updateEntry(id, updates) {
+  const data = loadLog();
+  const idx = data.entries.findIndex(e => e.id === id);
+  if (idx === -1) return null;
+  data.entries[idx] = normalizeEntry({ ...data.entries[idx], ...updates, id });
+  saveLog(data);
+  return data.entries[idx];
+}
+
+function deleteEntry(id) {
+  const data = loadLog();
+  data.entries = data.entries.filter(e => e.id !== id);
+  saveLog(data);
+  return data.entries;
+}
+
+function getEntriesForToday() {
+  const data = loadLog();
+  const todayKey = getLocalDateKey();
+  return data.entries.filter(e => getLocalDateKey(e.timestamp) === todayKey);
+}
+
+function sumEntries(entries) {
+  return entries.reduce(
+    (acc, entry) => {
+      acc.calories_kcal += toNumber(entry.calories_kcal, 0);
+      acc.protein_g += toNumber(entry.protein_g, 0);
+      acc.fat_g += toNumber(entry.fat_g, 0);
+      acc.carbs_g += toNumber(entry.carbs_g, 0);
+      return acc;
+    },
+    { calories_kcal: 0, protein_g: 0, fat_g: 0, carbs_g: 0 }
+  );
+}
+
+function getEntriesLastNDays(n = 7) {
+  const data = loadLog();
+  const days = [];
+  const today = new Date();
+
+  for (let i = 0; i < n; i += 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = getLocalDateKey(d);
+    const entries = data.entries.filter(e => getLocalDateKey(e.timestamp) === key);
+    days.push({
+      key,
+      date: d,
+      entries,
+      totals: sumEntries(entries)
+    });
+  }
+
+  return days;
+}
+
+function renderTodaySection() {
+  if (!dietTodaySummaryEl || !dietTodayEntriesEl) return;
+  const entries = getEntriesForToday();
+  const totals = sumEntries(entries);
+
+  if (!entries.length) {
+    dietTodaySummaryEl.textContent = 'Noch keine Einträge für heute.';
+    dietTodayEntriesEl.innerHTML = '';
+    return;
+  }
+
+  dietTodaySummaryEl.textContent =
+    `Heute gesamt: ${formatNumber(totals.calories_kcal)} kcal | ` +
+    `P ${formatNumber(totals.protein_g)} g · F ${formatNumber(totals.fat_g)} g · C ${formatNumber(totals.carbs_g)} g`;
+
+  const sorted = [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  dietTodayEntriesEl.innerHTML = '';
+
+  sorted.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'log-entry';
+    row.dataset.id = entry.id;
+
+    const date = new Date(entry.timestamp);
+    const timeLabel = date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+    const title = entry.title || 'Ohne Titel';
+
+    if (editingEntryId === entry.id) {
+      row.innerHTML = `
+        <div class="log-entry-header">
+          <div>
+            <div class="log-entry-title">Eintrag bearbeiten</div>
+            <div class="log-entry-meta">${timeLabel}</div>
+          </div>
+        </div>
+        <div class="log-entry-inputs">
+          <label class="input-group">Titel
+            <input type="text" class="input-text" data-field="title" value="${title.replace(/"/g, '&quot;')}" />
+          </label>
+          <label class="input-group">Portion (x)
+            <input type="number" min="0.5" step="0.5" class="input-text" data-field="portionMultiplier" value="${entry.portionMultiplier}" />
+          </label>
+          <label class="input-group">kcal
+            <input type="number" min="0" step="1" class="input-text" data-field="calories_kcal" value="${entry.calories_kcal}" />
+          </label>
+          <label class="input-group">Protein (g)
+            <input type="number" min="0" step="0.1" class="input-text" data-field="protein_g" value="${entry.protein_g}" />
+          </label>
+          <label class="input-group">Fett (g)
+            <input type="number" min="0" step="0.1" class="input-text" data-field="fat_g" value="${entry.fat_g}" />
+          </label>
+          <label class="input-group">Kohlenhydrate (g)
+            <input type="number" min="0" step="0.1" class="input-text" data-field="carbs_g" value="${entry.carbs_g}" />
+          </label>
+          <label class="input-group">Notiz
+            <input type="text" class="input-text" data-field="notes" value="${(entry.notes || '').replace(/"/g, '&quot;')}" />
+          </label>
+        </div>
+        <div class="log-entry-actions">
+          <button type="button" class="primary" data-action="save">Speichern</button>
+          <button type="button" class="secondary" data-action="cancel">Abbrechen</button>
+        </div>
+      `;
+    } else {
+      row.innerHTML = `
+        <div class="log-entry-header">
+          <div>
+            <div class="log-entry-title">${title}</div>
+            <div class="log-entry-meta">${timeLabel} · ${entry.portionMultiplier}x Portion</div>
+          </div>
+        </div>
+        <div class="log-entry-macros">
+          <span><strong>${formatNumber(entry.calories_kcal)}</strong> kcal</span>
+          <span>P ${formatNumber(entry.protein_g)} g</span>
+          <span>F ${formatNumber(entry.fat_g)} g</span>
+          <span>C ${formatNumber(entry.carbs_g)} g</span>
+        </div>
+        ${entry.notes ? `<div class="log-entry-meta">Notiz: ${entry.notes}</div>` : ''}
+        <div class="log-entry-actions">
+          <button type="button" class="secondary" data-action="edit">Bearbeiten</button>
+          <button type="button" class="secondary" data-action="delete">Löschen</button>
+        </div>
+      `;
+    }
+
+    dietTodayEntriesEl.appendChild(row);
+  });
+}
+
+function renderHistorySection() {
+  if (!dietHistoryListEl) return;
+  const days = getEntriesLastNDays(7);
+
+  if (!days.length) {
+    dietHistoryListEl.innerHTML = '<div class="muted">Noch keine Daten.</div>';
+    return;
+  }
+
+  dietHistoryListEl.innerHTML = '';
+  days.reverse().forEach(day => {
+    const label = day.date.toLocaleDateString('de-CH', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit'
+    });
+    const row = document.createElement('div');
+    row.className = 'history-row';
+    row.innerHTML = `
+      <div>${label}</div>
+      <div class="history-macros">
+        <span>${formatNumber(day.totals.calories_kcal)} kcal</span>
+        <span>P ${formatNumber(day.totals.protein_g)} g</span>
+        <span>F ${formatNumber(day.totals.fat_g)} g</span>
+        <span>C ${formatNumber(day.totals.carbs_g)} g</span>
+      </div>
+    `;
+    dietHistoryListEl.appendChild(row);
+  });
+}
+
+function renderLogSections() {
+  renderTodaySection();
+  renderHistorySection();
+  renderDietBudgetUI();
+}
+
+if (dietTodayEntriesEl) {
+  dietTodayEntriesEl.addEventListener('click', (event) => {
+    const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+    if (!btn) return;
+    const row = btn.closest('.log-entry');
+    if (!row) return;
+    const id = row.dataset.id;
+    const action = btn.dataset.action;
+    if (!id || !action) return;
+
+    if (action === 'edit') {
+      editingEntryId = id;
+      renderLogSections();
+      return;
+    }
+
+    if (action === 'cancel') {
+      editingEntryId = null;
+      renderLogSections();
+      return;
+    }
+
+    if (action === 'delete') {
+      if (confirm('Eintrag wirklich löschen?')) {
+        deleteEntry(id);
+        editingEntryId = null;
+        renderLogSections();
+      }
+      return;
+    }
+
+    if (action === 'save') {
+      const inputs = row.querySelectorAll('[data-field]');
+      const updates = {};
+      inputs.forEach(input => {
+        const field = input.dataset.field;
+        if (!field) return;
+        if (['calories_kcal', 'protein_g', 'fat_g', 'carbs_g', 'portionMultiplier'].includes(field)) {
+          updates[field] = Math.max(0, toNumber(input.value, 0));
+        } else {
+          updates[field] = input.value;
+        }
+      });
+      if (updates.portionMultiplier) {
+        updates.portionMultiplier = Math.max(0.5, updates.portionMultiplier);
+      }
+      updateEntry(id, updates);
+      editingEntryId = null;
+      renderLogSections();
+    }
+  });
+}
+
+function renderDietResult(normalized, options = {}) {
+  if (normalized) currentDietAnalysis = normalized;
+  const shouldToast = options.showToast !== false && !!normalized;
 
   // ✅ Immer sichtbar: kurzer Toast
-  try {
-    const totalToast = Math.round(Number(normalized.totalCalories || 0));
-    showToast(`Analyse: ${totalToast} kcal ✅`, 2200);
-  } catch {}
+  if (shouldToast) {
+    try {
+      const totalToast = Math.round(Number((normalized && normalized.calories_kcal) || normalized?.totalCalories || 0));
+      showToast(`Analyse: ${totalToast} kcal ✅`, 2200);
+    } catch {}
+  }
 
   // ✅ Fallback immer rendern (damit du sicher was siehst)
   try {
     renderFallbackResult(normalized);
   } catch {}
 
-  const total = Math.round(Number(normalized.totalCalories || 0));
-  const note = normalized.note || '';
+  const scaled = getScaledAnalysis(currentDietAnalysis, currentPortionMultiplier);
+  const total = Math.round(Number(scaled?.calories_kcal || 0));
+  const note = currentDietAnalysis?.note || '';
 
   // Wenn hier IDs fehlen, siehst du es zumindest im Fallback + Console
   if (!dietTotalCaloriesEl || !dietResultNoteEl || !dietItemsListEl) {
@@ -716,12 +1139,12 @@ function renderDietResult(normalized) {
 
   if (dietTotalCaloriesEl) {
     dietTotalCaloriesEl.textContent =
-      normalized.totalCalories != null ? `${total} kcal (geschätzt)` : 'Noch keine Analyse';
+      currentDietAnalysis ? `${total} kcal (geschätzt)` : 'Noch keine Analyse';
   }
   if (dietResultNoteEl) dietResultNoteEl.textContent = note;
 
   if (dietDailyPill && dietDailyPillText) {
-    const fits = normalized.fitsDailyBudget || 'unsicher';
+    const fits = currentDietAnalysis?.fitsDailyBudget || 'unsicher';
     let emoji = '❓';
     let pillText = 'Schwer einzuordnen – hängt stark von Portionsgröße und Person ab.';
 
@@ -737,26 +1160,55 @@ function renderDietResult(normalized) {
     dietDailyPill.style.display = 'inline-flex';
   }
 
-  if (dietItemsListEl) renderIngredientsList(normalized.items || []);
+  if (dietItemsListEl) renderIngredientsList(currentDietAnalysis?.items || []);
 
-  if (normalized.totalCalories != null) {
-    updateDietBudgetAfterAnalysis(Number(normalized.totalCalories));
+  if (dietMacroCaloriesEl) dietMacroCaloriesEl.textContent = `${formatNumber(scaled?.calories_kcal || 0)} kcal`;
+  if (dietMacroProteinEl) dietMacroProteinEl.textContent = `${formatNumber(scaled?.protein_g || 0, 1)} g`;
+  if (dietMacroFatEl) dietMacroFatEl.textContent = `${formatNumber(scaled?.fat_g || 0, 1)} g`;
+  if (dietMacroCarbsEl) dietMacroCarbsEl.textContent = `${formatNumber(scaled?.carbs_g || 0, 1)} g`;
+
+  if (dietSaveEntryBtn) {
+    dietSaveEntryBtn.disabled = !currentDietAnalysis;
+  }
+
+  if (currentDietAnalysis && currentDietAnalysis.totalCalories != null) {
+    renderDietBudgetUI();
   }
 }
 
 // Normalisiert Backend-Payload
 function normalizeBackendPayload(data) {
-  const a = (data && data.analysis) ? data.analysis : null;
-  const b = (data && data.ok && data.data) ? data.data : null;
-  const src = a || b || data || {};
+  const a = (data && data.result) ? data.result : null;
+  const b = (data && data.analysis) ? data.analysis : null;
+  const c = (data && data.ok && data.data) ? data.data : null;
+  const src = a || b || c || data || {};
+
+  const calories = toNumber(src.calories_kcal ?? src.totalCalories ?? 0, 0);
+  let protein = toNumber(src.protein_g ?? 0, 0);
+  let fat = toNumber(src.fat_g ?? 0, 0);
+  let carbs = toNumber(src.carbs_g ?? 0, 0);
+  let macrosEstimated = false;
+
+  if (calories > 0 && protein === 0 && fat === 0 && carbs === 0) {
+    const estimated = estimateMacrosFromCalories(calories);
+    protein = estimated.protein_g;
+    fat = estimated.fat_g;
+    carbs = estimated.carbs_g;
+    macrosEstimated = true;
+  }
 
   // Support: /analysis enthält ingredients[] und/oder items[]
   if (Array.isArray(src.items)) {
     return {
-      dishName: src.dishName || '',
-      totalCalories: src.totalCalories ?? 0,
+      dishName: src.title || src.dishName || '',
+      totalCalories: calories,
+      calories_kcal: calories,
+      protein_g: protein,
+      fat_g: fat,
+      carbs_g: carbs,
       note: src.note || '',
       fitsDailyBudget: src.fitsDailyBudget || 'unsicher',
+      macrosEstimated,
       items: src.items.map(it => ({
         name: it.name,
         comment: it.comment || '',
@@ -767,10 +1219,15 @@ function normalizeBackendPayload(data) {
 
   if (Array.isArray(src.ingredients)) {
     return {
-      dishName: src.dishName || '',
-      totalCalories: src.totalCalories ?? 0,
+      dishName: src.title || src.dishName || '',
+      totalCalories: calories,
+      calories_kcal: calories,
+      protein_g: protein,
+      fat_g: fat,
+      carbs_g: carbs,
       note: src.note || '',
       fitsDailyBudget: src.fitsDailyBudget || 'unsicher',
+      macrosEstimated,
       items: src.ingredients.map(it => ({
         name: it.name,
         comment: (it.estimatedWeightGrams != null ? `${it.estimatedWeightGrams} g` : ''),
@@ -780,10 +1237,15 @@ function normalizeBackendPayload(data) {
   }
 
   return {
-    dishName: src.dishName || '',
-    totalCalories: src.totalCalories ?? 0,
+    dishName: src.title || src.dishName || '',
+    totalCalories: calories,
+    calories_kcal: calories,
+    protein_g: protein,
+    fat_g: fat,
+    carbs_g: carbs,
     note: src.note || '',
     fitsDailyBudget: src.fitsDailyBudget || 'unsicher',
+    macrosEstimated,
     items: []
   };
 }
@@ -851,6 +1313,7 @@ async function analyzeCurrentImage() {
     const normalized = normalizeBackendPayload(data);
     console.log('[Diet-App] Analyse normalisiert:', normalized);
 
+    setPortionMultiplier(1, { render: false });
     renderDietResult(normalized);
 
     if (isDebugEnabled() && dietDebugContent) {
@@ -876,6 +1339,48 @@ if (dietAnalyzeBtn) {
   });
 }
 
+if (dietPortionButtons) {
+  dietPortionButtons.addEventListener('click', (event) => {
+    const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+    if (!btn) return;
+    const value = toNumber(btn.dataset.multiplier, 1);
+    setPortionMultiplier(value);
+  });
+}
+
+if (dietPortionRange) {
+  dietPortionRange.addEventListener('input', (event) => {
+    setPortionMultiplier(event.target.value);
+  });
+}
+
+if (dietSaveEntryBtn) {
+  dietSaveEntryBtn.addEventListener('click', () => {
+    if (!currentDietAnalysis) {
+      showError('Bitte zuerst eine Analyse durchführen.');
+      return;
+    }
+
+    const scaled = getScaledAnalysis(currentDietAnalysis, currentPortionMultiplier);
+    const entry = addEntry({
+      timestamp: new Date().toISOString(),
+      title: currentDietAnalysis.dishName || 'Unbekanntes Gericht',
+      portionMultiplier: currentPortionMultiplier,
+      calories_kcal: Math.round(scaled.calories_kcal),
+      protein_g: Math.round(scaled.protein_g * 10) / 10,
+      fat_g: Math.round(scaled.fat_g * 10) / 10,
+      carbs_g: Math.round(scaled.carbs_g * 10) / 10,
+      notes: dietEntryNotesInput ? dietEntryNotesInput.value.trim() : ''
+    });
+
+    if (dietEntryNotesInput) dietEntryNotesInput.value = '';
+    showToast('Eintrag gespeichert ✅');
+    editingEntryId = null;
+    renderLogSections();
+    return entry;
+  });
+}
+
 // -------------------------------------------------------------
 // Kalorien-Tagesbudget (localStorage + 7 Tage Chart)
 // -------------------------------------------------------------
@@ -889,13 +1394,6 @@ const dietBudgetWarning = document.getElementById('diet-budget-warning');
 const dietBudgetChartContainer = document.getElementById('diet-budget-chart');
 
 const LS_DIET_BUDGET_KEY = 'dietDailyCalorieBudgetV1';
-
-// ✅ Wichtig: lokales Datum (nicht UTC)
-function getTodayKey() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
-}
 
 function loadDietBudgetState() {
   try {
@@ -920,21 +1418,10 @@ function saveDietBudgetState(state) {
 function renderDietBudgetChart(state) {
   if (!dietBudgetChartContainer) return;
 
-  const today = new Date();
-  const days = [];
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-
-    const local = new Date(d);
-    local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-    const key = local.toISOString().slice(0, 10);
-
-    const value = Number(state.log[key] || 0);
-    const weekday = d.toLocaleDateString('de-CH', { weekday: 'short' });
-    days.push({ key, label: weekday, value });
-  }
+  const days = getEntriesLastNDays(7).reverse().map(day => {
+    const weekday = day.date.toLocaleDateString('de-CH', { weekday: 'short' });
+    return { label: weekday, value: Math.round(day.totals.calories_kcal) };
+  });
 
   const max = days.reduce((m, d) => Math.max(m, d.value), 0);
   if (!max) {
@@ -977,8 +1464,8 @@ function renderDietBudgetUI() {
   if (!dietBudgetConsumedSpan || !dietBudgetRemainingSpan) return;
 
   const state = loadDietBudgetState();
-  const todayKey = getTodayKey();
-  const consumed = Number(state.log[todayKey] || 0);
+  const todayTotals = sumEntries(getEntriesForToday());
+  const consumed = Math.round(todayTotals.calories_kcal);
   const goal = state.goal;
 
   if (dietBudgetGoalLabel) {
@@ -1029,17 +1516,6 @@ function renderDietBudgetUI() {
   renderDietBudgetChart(state);
 }
 
-function updateDietBudgetAfterAnalysis(totalCalories) {
-  if (!totalCalories || !isFinite(totalCalories)) return null;
-  const state = loadDietBudgetState();
-  const todayKey = getTodayKey();
-  const prev = Number(state.log[todayKey] || 0);
-  state.log[todayKey] = prev + Math.round(Number(totalCalories));
-  saveDietBudgetState(state);
-  renderDietBudgetUI();
-  return { total: state.log[todayKey], goal: state.goal || null };
-}
-
 if (dietBudgetSaveBtn && dietBudgetGoalInput) {
   dietBudgetSaveBtn.addEventListener('click', e => {
     e.preventDefault();
@@ -1063,6 +1539,9 @@ if (dietBudgetSaveBtn && dietBudgetGoalInput) {
 window.addEventListener('DOMContentLoaded', async () => {
   initDebugUI();
   renderDietBudgetUI();
+  renderLogSections();
+  setPortionMultiplier(1);
+  renderApiStatus();
 
   const ok = await checkBackendReachable();
 
