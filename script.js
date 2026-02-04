@@ -1,3 +1,4 @@
+console.log('SCRIPT VERSION: PROD-OVERRIDE-AKTIV');
 // frontend/script.js
 console.log('[Diet-App] script.js geladen');
 
