@@ -125,6 +125,7 @@
             </button>
 
             <div class="status" id="diet-status"></div>
+            <div class="status api-status" id="diet-api-status"></div>
           </div>
 
           <!-- RIGHT CARD -->
@@ -175,7 +176,49 @@
             </div>
 
             <div class="result-total" id="diet-total-calories">Noch keine Analyse</div>
+            <div class="macro-grid" id="diet-macro-grid">
+              <div class="macro-card">
+                <span class="macro-label">Kalorien</span>
+                <span class="macro-value" id="diet-macro-calories">0 kcal</span>
+              </div>
+              <div class="macro-card">
+                <span class="macro-label">Protein</span>
+                <span class="macro-value" id="diet-macro-protein">0 g</span>
+              </div>
+              <div class="macro-card">
+                <span class="macro-label">Fett</span>
+                <span class="macro-value" id="diet-macro-fat">0 g</span>
+              </div>
+              <div class="macro-card">
+                <span class="macro-label">Kohlenhydrate</span>
+                <span class="macro-value" id="diet-macro-carbs">0 g</span>
+              </div>
+            </div>
             <div class="result-note" id="diet-result-note"></div>
+
+            <div class="portion-controls">
+              <div class="portion-header">
+                <span>Portionsgröße</span>
+                <span id="diet-portion-label" class="muted">1x</span>
+              </div>
+              <div class="portion-buttons" id="diet-portion-buttons">
+                <button type="button" class="secondary" data-multiplier="0.5">0.5x</button>
+                <button type="button" class="secondary" data-multiplier="1">1x</button>
+                <button type="button" class="secondary" data-multiplier="1.5">1.5x</button>
+                <button type="button" class="secondary" data-multiplier="2">2x</button>
+                <button type="button" class="secondary" data-multiplier="3">3x</button>
+              </div>
+              <input id="diet-portion-range" type="range" min="0.5" max="3" step="0.5" value="1" />
+            </div>
+
+            <label class="notes-field">
+              Notiz (optional)
+              <input id="diet-entry-notes" type="text" class="input-text" placeholder="z. B. extra Dressing, halb gegessen" />
+            </label>
+
+            <button id="diet-save-entry" type="button" class="primary" disabled>
+              Speichern im Tageslog
+            </button>
 
             <div class="items-list" id="diet-items-list">
               <div class="items-placeholder">
@@ -225,6 +268,25 @@
               Speichern
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="diet-log-grid">
+        <div class="card">
+          <h2>Heute</h2>
+          <div class="helper-text">
+            Summiert alle gespeicherten Einträge von heute. Du kannst Titel, Portion und Makros bearbeiten.
+          </div>
+          <div id="diet-today-summary" class="today-summary">Noch keine Einträge.</div>
+          <div id="diet-today-entries" class="log-list"></div>
+        </div>
+
+        <div class="card">
+          <h2>Verlauf (7 Tage)</h2>
+          <div class="helper-text">
+            Tägliche Summen der letzten 7 Tage (kcal + Makros).
+          </div>
+          <div id="diet-history-list" class="history-list"></div>
         </div>
       </div>
 
